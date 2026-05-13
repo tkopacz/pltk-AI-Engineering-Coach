@@ -1453,6 +1453,39 @@
 }
 
 /* Card overlay — workspace name on hover */
+
+/* ── CSS Tooltips (data-tip) ───────────────────────────────────── */
+[data-tip] { position: relative; }
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute; left: 50%; bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  max-width: 260px;
+  width: max-content;
+  border-radius: 6px;
+  background: #1c2128;
+  border: 1px solid rgba(240,246,252,0.1);
+  color: #e6edf3;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: normal;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+[data-tip]:hover::before {
+  content: '';
+  position: absolute; left: 50%; bottom: 100%;
+  transform: translateX(-50%) translateY(100%);
+  border: 5px solid transparent;
+  border-top-color: #1c2128;
+  pointer-events: none;
+  z-index: 1000;
+}
+[data-tip].tip-left:hover::after { left: 0; transform: none; }
+[data-tip].tip-left:hover::before { left: 12px; transform: translateY(100%); }
 .img-card-overlay {
   position: absolute; bottom: 0; left: 0; right: 0;
   padding: 6px 10px;

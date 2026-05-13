@@ -25,7 +25,7 @@ export const FIELD_SCHEMA: FieldInfo[] = [
   { name: 'responseText',       type: 'string',       description: 'AI response text',                                   scope: 'request' },
   { name: 'isCanceled',         type: 'boolean',      description: 'Whether the request was canceled',                    scope: 'request' },
   { name: 'agentName',          type: 'string',       description: 'Agent name (copilot, custom agent, etc.)',            scope: 'request' },
-  { name: 'agentMode',          type: 'string',       description: 'Agent mode: chat, agent, edit, generate',             scope: 'request', example: '"agent"' },
+  { name: 'agentMode',          type: 'string',       description: 'Agent mode: agent, ask, edit, plan, or custom agent name',  scope: 'request', example: '"agent"' },
   { name: 'modelId',            type: 'string',       description: 'Model identifier (gpt-4.1, claude-sonnet, etc.)',      scope: 'request', example: '"gpt-4.1"' },
   { name: 'toolsUsed',          type: 'string[]',     description: 'List of tools used in this request',                  scope: 'request' },
   { name: 'editedFiles',        type: 'string[]',     description: 'Files edited during this request',                    scope: 'request' },
@@ -136,9 +136,9 @@ export const METRIC_PRIMITIVES: MetricPrimitive[] = [
   {
     id: 'agent_mode_rate',
     name: 'Agent Mode Usage',
-    description: 'Ratio of requests using agent mode',
+    description: 'Ratio of requests using agentic modes (agent, plan, edit, custom)',
     scope: 'requests',
-    filter: 'agentMode == "agent"',
+    filter: 'agentMode != "" && agentMode != "chat" && agentMode != "ask"',
     aggregation: 'ratio',
   },
   {

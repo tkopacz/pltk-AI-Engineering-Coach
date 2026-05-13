@@ -362,8 +362,12 @@ describe('ConfigAnalyzer', () => {
       avgResponseLength: 150,
       cancelRate: 50,
       agentModeRate: 50,
-      score: 100,
+      score: 50,
     });
+    expect(result.contextProvisionByHarness['VS Code'].modeDistribution).toEqual([
+      { mode: 'agent', count: 1 },
+      { mode: 'chat', count: 1 },
+    ]);
     expect(result.contextProvisionByHarness['VS Code'].topModels).toEqual([{ model: 'gpt-4', count: 2 }]);
     expect(result.contextProvisionByHarness['VS Code'].topTools).toEqual([{ tool: 'grep', count: 1 }]);
     expect(result.contextProvisionByHarness['VS Code'].topReferencedFiles).toEqual([{ file: 'src/a.ts', count: 1 }]);

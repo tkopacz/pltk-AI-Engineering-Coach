@@ -294,6 +294,18 @@ export function detectDevcontainerFromRequests(requests: SessionRequest[], cwd?:
   return false;
 }
 
+/** Regex to extract the skill directory name from a path ending in `/skills/<name>/SKILL.md`. */
+const SKILL_PATH_RE = /[/\\]skills[/\\]([^/\\]+)[/\\]SKILL\.md$/i;
+
+/** Extract a skill name from a file path pointing to a SKILL.md file.
+ *  Returns null if the path does not match the expected pattern. */
+export function extractSkillNameFromPath(rawPath: string): string | null {
+  const m = SKILL_PATH_RE.exec(rawPath);
+  if (!m) return null;
+  const name = m[1].trim();
+  return (name && !name.includes('ai_toolkit')) ? name : null;
+}
+
 /**
  * Optional validation gate that individual parsers can call before returning
  * sessions. Returns the session unchanged if valid, or null (with a warning)

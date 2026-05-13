@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Session, SessionRequest, ToolConfirmation } from './types';
-import { createRequest, createSession, detectDevcontainerFromRequests, ParseContext, prefetchCache } from './parser-shared';
+import { createRequest, createSession, detectDevcontainerFromRequests, extractSkillNameFromPath, ParseContext, prefetchCache } from './parser-shared';
 import { debugCore, warnCore } from './log';
 import { canonicalizeReasoningEffort, extractReasoningEffortFromModelId } from './helpers';
 import { parseCLIEventsFile } from './parser-vscode-cli';
@@ -419,6 +419,7 @@ interface SessionFileData {
   initialLocation?: string;
   requests?: RawRequest[];
   inputState?: {
+    mode?: { id?: string; kind?: string };
     selectedModel?: {
       identifier?: string;
       metadata?: {
@@ -488,6 +489,29 @@ function extractAgentInfo(agent: RawRequest['agent']): { agentName: string; agen
   };
 }
 
+/**
+ * Normalize the session-level inputState.mode.id into a canonical agentMode value.
+ * VS Code stores:
+ *   - 'agent' for Agent mode
+ *   - 'ask' for Ask/Chat mode
+ *   - 'edit' for Edit mode
+ *   - A full URI path (e.g. '.../Plan.agent.md') for Plan mode and custom agents
+ */
+function normalizeSessionMode(modeId: string | undefined): string {
+  if (!modeId) return '';
+  // Built-in modes
+  if (modeId === 'agent' || modeId === 'ask' || modeId === 'edit') return modeId;
+  // URI-based modes: extract the meaningful name from the path
+  const lower = modeId.toLowerCase();
+  if (lower.includes('plan')) return 'plan';
+  // Other custom agents/chatmodes — use the filename stem
+  const decoded = decodeURIComponent(modeId);
+  const lastSlash = decoded.lastIndexOf('/');
+  const filename = lastSlash >= 0 ? decoded.substring(lastSlash + 1) : decoded;
+  const stem = filename.replace(/\.(agent|chatmode)\.md$/i, '');
+  return stem || modeId;
+}
+
 function extractSlashCommand(slashCmd: RawRequest['slashCommand']): string {
   if (isObj(slashCmd) && typeof slashCmd.name === 'string') {
     return slashCmd.name;
@@ -522,15 +546,7 @@ function extractCustomInstructions(contentRefs: RawContentRef[] | undefined): st
   return instructions;
 }
 
-/** Regex to extract the skill directory name from a path ending in `/skills/<name>/SKILL.md`. */
-const SKILL_PATH_RE = /[/\\]skills[/\\]([^/\\]+)[/\\]SKILL\.md$/i;
-
-function extractSkillNameFromPath(rawPath: string): string | null {
-  const m = SKILL_PATH_RE.exec(rawPath);
-  if (!m) return null;
-  const name = m[1].trim();
-  return (name && !name.includes('ai_toolkit')) ? name : null;
-}
+// extractSkillNameFromPath is imported from parser-shared
 
 /** Extract skill names from legacy inline XML in variable values. */
 function extractSkillsFromXml(vdVars: RawVariable[], skills: Set<string>): void {
@@ -949,11 +965,21 @@ export function parseSessionFile(sessionFile: string, wsId: string, wsName: stri
       ?.properties?.reasoningEffort?.default ?? null
   );
 
+  // Extract session-level mode from inputState.mode.id.
+  // VS Code stores the actual mode (agent/ask/edit/plan/custom) here,
+  // while per-request agent.id only distinguishes the extension participant.
+  const sessionMode = normalizeSessionMode(data.inputState?.mode?.id);
+
   const parsedRequests = requests.map(r => {
     const req = parseRawRequest(r);
     // Apply session-level effort default when per-request effort is unknown
     if (!req.reasoningEffort && sessionEffortDefault) {
       req.reasoningEffort = sessionEffortDefault;
+    }
+    // Apply session-level mode as agentMode — it's the definitive source
+    // for distinguishing agent/ask/plan/edit/custom modes.
+    if (sessionMode) {
+      req.agentMode = sessionMode;
     }
     return req;
   });

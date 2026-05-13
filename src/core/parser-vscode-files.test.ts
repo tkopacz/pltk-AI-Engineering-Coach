@@ -157,6 +157,48 @@ describe('reconstructFromJsonl', () => {
       expect(state).toEqual({ items: [['a', 'b', 'c']] });
     });
   });
+
+  it('preserves initial plan mode even when later patches overwrite it', () => {
+    const planUri = 'vscode-userdata:/Users/me/.vscode/agents/plan-agent/Plan.agent.md';
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: {
+          sessionId: 'test-plan',
+          inputState: { mode: { id: planUri, kind: 'agent' } },
+          requests: [],
+        },
+      }),
+      // VS Code patches mode to "agent" when executing
+      JSON.stringify({ kind: 1, k: ['inputState', 'mode'], v: { id: 'agent', kind: 'agent' } }),
+    ].join('\n');
+    withTempFile('plan-overwrite.jsonl', lines, (filePath) => {
+      const state = reconstructFromJsonl(filePath) as Record<string, unknown>;
+      const is = state.inputState as Record<string, unknown>;
+      const mode = is.mode as Record<string, unknown>;
+      expect(mode.id).toBe(planUri);
+    });
+  });
+
+  it('preserves initial agent mode when no patches overwrite it', () => {
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: {
+          sessionId: 'test-agent',
+          inputState: { mode: { id: 'agent', kind: 'agent' } },
+          requests: [],
+        },
+      }),
+      JSON.stringify({ kind: 1, k: ['requests', 0], v: { text: 'hello' } }),
+    ].join('\n');
+    withTempFile('agent-noop.jsonl', lines, (filePath) => {
+      const state = reconstructFromJsonl(filePath) as Record<string, unknown>;
+      const is = state.inputState as Record<string, unknown>;
+      const mode = is.mode as Record<string, unknown>;
+      expect(mode.id).toBe('agent');
+    });
+  });
 });
 
 describe('parseWorkspaceName', () => {

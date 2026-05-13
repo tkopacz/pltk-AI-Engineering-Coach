@@ -71,6 +71,7 @@ export interface ContextProvisionScore {
   avgPromptLength: number;
   cancelRate: number;
   agentModeRate: number;
+  modeDistribution: { mode: string; count: number }[];
   avgResponseLength: number;
 }
 

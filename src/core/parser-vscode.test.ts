@@ -428,6 +428,81 @@ describe('parseSessionFile — basic VS Code session', () => {
     });
   });
 
+  it('uses inputState.mode.id as agentMode when present', () => {
+    const data = {
+      sessionId: 'mode-test',
+      inputState: { mode: { id: 'agent', kind: 'agent' } },
+      requests: [{
+        requestId: 'r1',
+        timestamp: 1000,
+        message: { text: 'help' },
+        response: [{ value: 'ok' }],
+        agent: { extensionDisplayName: 'GitHub Copilot Chat', id: 'github.copilot.editsAgent' },
+        result: { metadata: {} },
+      }],
+    };
+    withTempFile('mode-agent.json', JSON.stringify(data), (filePath) => {
+      const session = parseSessionFile(filePath, 'ws', 'wp', 'Local Agent');
+      expect(session!.requests[0].agentMode).toBe('agent');
+    });
+  });
+
+  it('normalizes plan mode URI to "plan"', () => {
+    const data = {
+      sessionId: 'plan-test',
+      inputState: { mode: { id: 'vscode-userdata:/c%3A/Users/test/plan-agent/Plan.agent.md', kind: 'agent' } },
+      requests: [{
+        requestId: 'r1',
+        timestamp: 1000,
+        message: { text: 'plan the architecture' },
+        response: [{ value: 'ok' }],
+        agent: { extensionDisplayName: 'GitHub Copilot Chat', id: 'github.copilot.editsAgent' },
+        result: { metadata: {} },
+      }],
+    };
+    withTempFile('mode-plan.json', JSON.stringify(data), (filePath) => {
+      const session = parseSessionFile(filePath, 'ws', 'wp', 'Local Agent');
+      expect(session!.requests[0].agentMode).toBe('plan');
+    });
+  });
+
+  it('normalizes ask mode', () => {
+    const data = {
+      sessionId: 'ask-test',
+      inputState: { mode: { id: 'ask', kind: 'default' } },
+      requests: [{
+        requestId: 'r1',
+        timestamp: 1000,
+        message: { text: 'what is this?' },
+        response: [{ value: 'explanation' }],
+        agent: { extensionDisplayName: 'GitHub Copilot', id: 'github.copilot.default' },
+        result: { metadata: {} },
+      }],
+    };
+    withTempFile('mode-ask.json', JSON.stringify(data), (filePath) => {
+      const session = parseSessionFile(filePath, 'ws', 'wp', 'Local Agent');
+      expect(session!.requests[0].agentMode).toBe('ask');
+    });
+  });
+
+  it('normalizes custom chatmode URI to stem name', () => {
+    const data = {
+      sessionId: 'custom-test',
+      inputState: { mode: { id: 'file:///c%3A/Users/test/MERs%20Agent.chatmode.md', kind: 'agent' } },
+      requests: [{
+        requestId: 'r1',
+        timestamp: 1000,
+        message: { text: 'run audit' },
+        response: [{ value: 'done' }],
+        result: { metadata: {} },
+      }],
+    };
+    withTempFile('mode-custom.json', JSON.stringify(data), (filePath) => {
+      const session = parseSessionFile(filePath, 'ws', 'wp', 'Local Agent');
+      expect(session!.requests[0].agentMode).toBe('MERs Agent');
+    });
+  });
+
   it('extracts slash commands', () => {
     const data = {
       sessionId: 'slash-test',

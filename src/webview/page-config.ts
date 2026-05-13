@@ -325,6 +325,16 @@ const CATEGORY_LABELS: Record<string, string> = {
   actionability: 'Actionability',
 };
 
+const CATEGORY_TOOLTIPS: Record<string, string> = {
+  clarity: 'How easy it is for the AI to understand your instructions without ambiguity.',
+  specificity: 'How precisely your instructions target concrete behaviors, tools, or patterns.',
+  structure: 'How well-organized your instructions are with headings, lists, and logical sections.',
+  completeness: 'How thoroughly your instructions cover the necessary topics and edge cases.',
+  staleness: 'Whether your instructions are up-to-date and free of outdated references.',
+  redundancy: 'How free your instructions are from duplicate or overlapping content.',
+  actionability: 'How directly the AI can act on your instructions without needing clarification.',
+};
+
 const GRADE_COLORS: Record<string, string> = {
   A: COLORS.green, B: '#58a6ff', C: COLORS.yellow, D: COLORS.orange, F: COLORS.red,
 };
@@ -421,7 +431,8 @@ function renderReviewCard(review: ContextReviewResult): ComponentChildren {
         <div style="display:flex;gap:4px;flex-shrink:0;">
           ${cats.map(([cat, score]) => {
             const c = score >= 45 ? COLORS.green : score >= 25 ? COLORS.yellow : COLORS.red;
-            return html`<div style="text-align:center;min-width:42px;" title=${`${CATEGORY_LABELS[cat] || cat}: ${score}/100`}><div style="font-size:12px;font-weight:700;color:${c};">${score}</div><div style="font-size:8px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">${(CATEGORY_LABELS[cat] || cat).slice(0, 5)}</div></div>`;
+            const tip = CATEGORY_TOOLTIPS[cat] || '';
+            return html`<div style="text-align:center;min-width:42px;" data-tip=${tip || undefined}><div style="font-size:12px;font-weight:700;color:${c};">${score}</div><div style="font-size:8px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">${(CATEGORY_LABELS[cat] || cat).slice(0, 5)}</div></div>`;
           })}
         </div>
       </div>
@@ -438,7 +449,7 @@ function renderReviewCard(review: ContextReviewResult): ComponentChildren {
 
 function renderCategoryBars(cats: [string, number][]): ComponentChildren {
   return html`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 4px;">
-    ${cats.map(([cat, score]) => sBar(CATEGORY_LABELS[cat] || cat, score))}
+    ${cats.map(([cat, score]) => sBar(CATEGORY_LABELS[cat] || cat, score, CATEGORY_TOOLTIPS[cat]))}
   </div>`;
 }
 
@@ -714,15 +725,15 @@ function renderProvisionDetail(e: ContextProvisionScore, fp: number, ip: number,
         ${sBar('Skills Used (20%)', sp)}${sBar('Tool Usage (20%)', tp)}
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
         ${metricCard('Avg Reqs / Session', String(e.avgRequestsPerSession), 'var(--text-primary, #c9d1d9)')}
         ${metricCard('Avg Prompt Length', `${e.avgPromptLength.toLocaleString()} chars`, promptColor, promptQuality)}
         ${metricCard('Avg Response Length', `${e.avgResponseLength.toLocaleString()} chars`, 'var(--text-primary, #c9d1d9)')}
         ${metricCard('Cancel Rate', `${e.cancelRate}%`, cancelColor)}
-        ${metricCard('Agent Mode', `${e.agentModeRate}%`, e.agentModeRate > 0 ? COLORS.green : 'var(--text-muted)')}
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;">
+        ${rankList('Mode Distribution', e.modeDistribution.map(m => ({ label: m.mode, count: m.count })), e.totalRequests)}
         ${rankList('Top Models', e.topModels.map(m => ({ label: m.model, count: m.count })), e.totalRequests)}
         ${rankList('Top Tools', e.topTools.map(t => ({ label: t.tool, count: t.count })), e.totalRequests)}
         ${rankList('Top Referenced Files', e.topReferencedFiles.map(f => ({ label: f.file, count: f.count })), e.withFileRefs || 1)}
@@ -744,10 +755,10 @@ function rankList(title: string, items: { label: string; count: number }[], tota
     <div style="font-size:11px;font-weight:500;color:var(--text-muted);margin-bottom:6px;">${title}</div>
     ${items.map(it => {
       const pct = total > 0 ? Math.round(it.count / total * 100) : 0;
-      return html`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      return html`<div class="tip-left" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-tip=${it.label}>
         <div style="flex:1;min-width:0;">
-          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:1px;">
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title=${it.label}>${it.label}</span>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:1px;min-width:0;">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${it.label}</span>
             <span style="color:var(--text-muted);flex-shrink:0;margin-left:4px;">${it.count} (${pct}%)</span>
           </div>
           <div style="height:3px;border-radius:2px;background:var(--bg-secondary, #0d1117);overflow:hidden;">
@@ -759,9 +770,9 @@ function rankList(title: string, items: { label: string; count: number }[], tota
   </div>`;
 }
 
-function sBar(label: string, pct: number): ComponentChildren {
+function sBar(label: string, pct: number, tooltip?: string): ComponentChildren {
   const c = pct >= 45 ? COLORS.green : pct >= 25 ? COLORS.yellow : COLORS.red;
-  return html`<div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>${label}</span><span style="color:${c};font-weight:600;">${pct}%</span></div><div style="height:6px;border-radius:3px;background:var(--bg-secondary, #161b22);overflow:hidden;"><div style="width:${pct}%;height:100%;background:${c};border-radius:3px;"></div></div></div>`;
+  return html`<div data-tip=${tooltip || undefined}><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>${label}</span><span style="color:${c};font-weight:600;">${pct}%</span></div><div style="height:6px;border-radius:3px;background:var(--bg-secondary, #161b22);overflow:hidden;"><div style="width:${pct}%;height:100%;background:${c};border-radius:3px;"></div></div></div>`;
 }
 
 /* ── Config Files ─────────────────────────────────────────────────── */

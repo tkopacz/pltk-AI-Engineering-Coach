@@ -363,11 +363,11 @@ export class ConfigAnalyzer extends AnalyzerBase {
       const toolRate = withTools / hReqs.length;
 
       const score = Math.min(100, Math.round(
-        (fileRefRate * 30 +
+        fileRefRate * 30 +
         instructionRate * 30 +
         skillRate * 20 +
         toolRate * 20
-        ) * 100 / 30));
+      ));
 
       // Extended detail fields
       const totalSessions = hSessions.length;
@@ -376,8 +376,13 @@ export class ConfigAnalyzer extends AnalyzerBase {
       const avgResponseLength = hReqs.length > 0 ? Math.round(hReqs.reduce((s, r) => s + r.responseLength, 0) / hReqs.length) : 0;
       const canceledCount = hReqs.filter(r => r.isCanceled).length;
       const cancelRate = hReqs.length > 0 ? Math.round(canceledCount / hReqs.length * 100) : 0;
-      const agentModeCount = hReqs.filter(r => r.agentMode === 'agent').length;
+      const agentModeCount = hReqs.filter(r => r.agentMode !== '' && r.agentMode !== 'chat' && r.agentMode !== 'ask').length;
       const agentModeRate = hReqs.length > 0 ? Math.round(agentModeCount / hReqs.length * 100) : 0;
+
+      // Mode distribution
+      const modeCounts = new Map<string, number>();
+      for (const r of hReqs) { const m = r.agentMode || 'unknown'; modeCounts.set(m, (modeCounts.get(m) ?? 0) + 1); }
+      const modeDistribution = [...modeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([mode, count]) => ({ mode, count }));
 
       // Top models
       const modelCounts = new Map<string, number>();
@@ -411,6 +416,7 @@ export class ConfigAnalyzer extends AnalyzerBase {
         avgPromptLength,
         cancelRate,
         agentModeRate,
+        modeDistribution,
         avgResponseLength,
       };
     }

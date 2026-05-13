@@ -18,7 +18,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Session, SessionRequest } from './types';
-import { assertTrustedPath, readFileSafe, createRequest, createSession, detectDevcontainerFromRequests } from './parser-shared';
+import { assertTrustedPath, readFileSafe, createRequest, createSession, detectDevcontainerFromRequests, extractSkillNameFromPath } from './parser-shared';
 import { extractReasoningEffortFromModelId } from './helpers';
 import { warnCore } from './log';
 
@@ -83,6 +83,7 @@ interface ClaudeAssistantData {
   toolsUsed: string[];
   editedFiles: string[];
   referencedFiles: string[];
+  skillsUsed: string[];
   model: string;
   totalInputTokens: number;
   totalOutputTokens: number;
@@ -217,11 +218,18 @@ function countClaudeImages(line: ClaudeLine): number {
 
 function applyClaudeToolBlock(
   block: ClaudeContentBlock,
-  data: Pick<ClaudeAssistantData, 'toolsUsed' | 'editedFiles' | 'referencedFiles'>,
+  data: Pick<ClaudeAssistantData, 'toolsUsed' | 'editedFiles' | 'referencedFiles' | 'skillsUsed'>,
 ): void {
   if (block.type !== 'tool_use' || !block.name) return;
 
   data.toolsUsed.push(block.name);
+
+  // Claude Code's Skill tool: { name: 'Skill', input: { skill: '<name>', args: '...' } }
+  if (block.name === 'Skill') {
+    const skillName = getInputPath(block.input, 'skill');
+    if (skillName) data.skillsUsed.push(skillName);
+    return;
+  }
   if (CLAUDE_WRITE_TOOLS.has(block.name)) {
     const filePath = getInputPath(block.input, 'file_path');
     if (filePath) data.editedFiles.push(filePath);
@@ -248,6 +256,7 @@ function collectClaudeAssistantData(lines: ClaudeLine[], startIndex: number, las
     toolsUsed: [],
     editedFiles: [],
     referencedFiles: [],
+    skillsUsed: [],
     model: '',
     totalInputTokens: 0,
     totalOutputTokens: 0,
@@ -569,6 +578,15 @@ function updateClaudeTimestampRange(
   };
 }
 
+function extractSkillsFromRefs(referencedFiles: string[]): string[] {
+  const skills = new Set<string>();
+  for (const ref of referencedFiles) {
+    const name = extractSkillNameFromPath(ref);
+    if (name) skills.add(name);
+  }
+  return [...skills];
+}
+
 function buildClaudeRequest(
   line: ClaudeLine,
   assistantData: ClaudeAssistantData,
@@ -577,6 +595,9 @@ function buildClaudeRequest(
 ): SessionRequest {
   const hasAnyTokens = assistantData.assistantCount > 0;
   const imageCount = countClaudeImages(line);
+  const uniqueRefs = [...new Set(assistantData.referencedFiles)];
+  const skills = new Set(assistantData.skillsUsed);
+  for (const name of extractSkillsFromRefs(uniqueRefs)) skills.add(name);
   return createRequest({
     requestId: line.uuid || `claude-${requestIndex}`,
     timestamp: userTs,
@@ -587,7 +608,8 @@ function buildClaudeRequest(
     modelId: assistantData.model,
     toolsUsed: assistantData.toolsUsed,
     editedFiles: [...new Set(assistantData.editedFiles)],
-    referencedFiles: [...new Set(assistantData.referencedFiles)],
+    referencedFiles: uniqueRefs,
+    skillsUsed: [...skills],
     variableKinds: imageCount > 0 ? { image: imageCount } : {},
     totalElapsed: userTs && assistantData.lastTs ? assistantData.lastTs - userTs : null,
     promptTokens: hasAnyTokens ? assistantData.totalInputTokens : null,

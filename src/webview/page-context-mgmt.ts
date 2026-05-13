@@ -88,7 +88,7 @@ export async function renderContextManagement(container: HTMLElement, currentFil
 
       <h3 style="margin-top:24px;">Per-Workspace Context Session Health</h3>
       <p style="color:var(--text-muted);font-size:12px;margin:4px 0 12px;">How efficiently each workspace manages its context window. Click a workspace to expand session-level details inline.</p>
-      <div id="ctxMgmtWsTable">${renderWorkspaceTable(sortWorkspacesBySessions(data.workspaces), 0, data.thresholds)}</div>
+      <div id="ctxMgmtWsTable"></div>
     </div>
   `, container);
 
@@ -426,6 +426,9 @@ export async function renderContextManagement(container: HTMLElement, currentFil
 
   let currentPage = 0;
   const updateTable = () => {
+    expandedWs = null;
+    expandedSessionData = null;
+    expandedSessionIdx = null;
     const filtered = getFilteredWorkspaces();
     render(html`<div>${renderWorkspaceTable(filtered, currentPage, data.thresholds)}</div>`, tableWrap);
     for (const btn of tableWrap.querySelectorAll('.ctx-ws-page-btn')) {
